@@ -1,1 +1,194 @@
-hello
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ProjectFlight — Simple Login & Add Flight</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0}
+    body{display:flex;min-height:100vh;align-items:center;justify-content:center;background:#0f172a;color:#e6eef8}
+    .card{background:linear-gradient(180deg,#111827, #0b1220);padding:28px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6);width:360px}
+    h1{font-size:20px;margin:0 0 14px}
+    label{display:block;margin:10px 0 6px;font-size:13px}
+    input,select,button{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    .row{display:flex;gap:8px}
+    button{cursor:pointer}
+    .muted{font-size:13px;color:#9aa7bd;margin-top:8px}
+    .hidden{display:none}
+    ul{padding-left:18px;margin-top:12px}
+    .flight-item{background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;margin-bottom:8px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .small{font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div id="auth-area">
+      <h1>ProjectFlight</h1>
+
+      <div id="login-form">
+        <label for="username">Username</label>
+        <select id="username">
+          <option value="zezo">zezo</option>
+          <option value="lilly">lilly</option>
+          <option value="asser">asser</option>
+        </select>
+
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="•••" />
+
+        <button id="login-btn">Sign in</button>
+        <div class="muted">Demo accounts: zezo:000, lilly:246, asser:230</div>
+      </div>
+
+      <div id="dashboard" class="hidden">
+        <div class="topbar">
+          <div>
+            <div class="small">Signed in as <strong id="who"></strong></div>
+          </div>
+          <div class="row">
+            <button id="add-flight">Add flight</button>
+            <button id="logout">Logout</button>
+          </div>
+        </div>
+
+        <h2 style="font-size:16px;margin:6px 0">Your flights</h2>
+        <div id="flights-list" class="small">No flights yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase v9 modular SDK -->
+  <script type="module">
+    // Firebase configuration (from user)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBF45eYjtdN7xAwPnhPNRMROcWiylSJRjA",
+      authDomain: "projectflight-551fb.firebaseapp.com",
+      databaseURL: "https://projectflight-551fb-default-rtdb.firebaseio.com",
+      projectId: "projectflight-551fb",
+      storageBucket: "projectflight-551fb.firebasestorage.app",
+      messagingSenderId: "669138235193",
+      appId: "1:669138235193:web:8581e586d192b3d19782e8",
+      measurementId: "G-SX32X0ZXG2"
+    };
+
+    // Import modular SDK from CDN
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
+    import { getDatabase, ref, push, onValue } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Demo credentials (client-side). In production, DO NOT store passwords in client-side code.
+    const CREDENTIALS = { zezo: '000', lilly: '246', asser: '230' };
+
+    // DOM
+    const loginForm = document.getElementById('login-form');
+    const dashboard = document.getElementById('dashboard');
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout');
+    const addFlightBtn = document.getElementById('add-flight');
+    const whoEl = document.getElementById('who');
+    const flightsList = document.getElementById('flights-list');
+
+    // Helpers
+    function setUser(username){
+      localStorage.setItem('projectflight_user', username);
+      showDashboard(username);
+    }
+    function clearUser(){
+      localStorage.removeItem('projectflight_user');
+      showLogin();
+    }
+
+    function showLogin(){
+      loginForm.classList.remove('hidden');
+      dashboard.classList.add('hidden');
+      flightsList.innerHTML = '';
+    }
+
+    function showDashboard(username){
+      loginForm.classList.add('hidden');
+      dashboard.classList.remove('hidden');
+      whoEl.textContent = username;
+      attachFlightsListener(username);
+    }
+
+    // Check persistent sign-in on load
+    window.addEventListener('load', ()=>{
+      const current = localStorage.getItem('projectflight_user');
+      if(current && CREDENTIALS[current]){
+        showDashboard(current);
+      } else {
+        showLogin();
+      }
+    });
+
+    // Login action
+    loginBtn.addEventListener('click', ()=>{
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      if(!username || !password){ alert('Enter username and password'); return; }
+      const expected = CREDENTIALS[username];
+      if(expected && password === expected){
+        setUser(username);
+      } else {
+        alert('Invalid username or password');
+      }
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', ()=>{
+      clearUser();
+    });
+
+    // Add flight
+    addFlightBtn.addEventListener('click', async ()=>{
+      const current = localStorage.getItem('projectflight_user');
+      if(!current){ alert('No user signed in'); return; }
+      const plane = prompt('Enter plane name (only)');
+      if(!plane) return;
+      // Save to Firebase Realtime Database under /users/{username}/flights
+      const flightsRef = ref(db, `users/${current}/flights`);
+      const newRef = await push(flightsRef, { planeName: plane, createdAt: Date.now() });
+      // simple feedback
+      alert('Flight added');
+    });
+
+    // Listen to flights and show
+    let currentListenerPath = null;
+    function attachFlightsListener(username){
+      // remove previous listener by reassigning flightsList
+      flightsList.innerHTML = 'Loading...';
+      const userFlightsRef = ref(db, `users/${username}/flights`);
+      onValue(userFlightsRef, (snap)=>{
+        if(!snap.exists()){
+          flightsList.innerHTML = '<div class="muted">No flights yet.</div>';
+          return;
+        }
+        const data = snap.val();
+        // Render list
+        const items = Object.keys(data).map(k => ({ id: k, ...data[k] }))
+          .sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+        flightsList.innerHTML = '';
+        const ul = document.createElement('ul');
+        items.forEach(it=>{
+          const li = document.createElement('li');
+          li.className = 'flight-item';
+          const time = it.createdAt ? new Date(it.createdAt).toLocaleString() : '-';
+          li.innerHTML = `<strong>${escapeHtml(it.planeName)}</strong><div class="small">${time}</div>`;
+          ul.appendChild(li);
+        })
+        flightsList.appendChild(ul);
+      });
+    }
+
+    // simple HTML escaping
+    function escapeHtml(s){
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+  </script>
+</body>
+</html>
