@@ -48,6 +48,7 @@
           </div>
           <div class="row">
             <button id="add-flight">Add flight</button>
+            <button id="delete-all">Delete all</button>
             <button id="logout">Logout</button>
           </div>
         </div>
@@ -74,7 +75,7 @@
 
     // Import modular SDK from CDN
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
-    import { getDatabase, ref, push, onValue } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
+    import { getDatabase, ref, push, onValue, remove } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
 
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
@@ -89,6 +90,7 @@
     const loginBtn = document.getElementById('login-btn');
     const logoutBtn = document.getElementById('logout');
     const addFlightBtn = document.getElementById('add-flight');
+    const deleteAllBtn = document.getElementById('delete-all');
     const whoEl = document.getElementById('who');
     const flightsList = document.getElementById('flights-list');
 
@@ -154,6 +156,20 @@
       const newRef = await push(flightsRef, { planeName: plane, createdAt: Date.now() });
       // simple feedback
       alert('Flight added');
+    });
+
+    // Delete all flights for current user
+    deleteAllBtn.addEventListener('click', async ()=>{
+      const current = localStorage.getItem('projectflight_user');
+      if(!current){ alert('No user signed in'); return; }
+      if(!confirm('Delete ALL flights for ' + current + '? This cannot be undone.')) return;
+      const flightsRef = ref(db, `users/${current}/flights`);
+      try{
+        await remove(flightsRef);
+        alert('All flights deleted');
+      }catch(e){
+        alert('Error deleting flights: ' + (e && e.message ? e.message : e));
+      }
     });
 
     // Listen to flights and show
